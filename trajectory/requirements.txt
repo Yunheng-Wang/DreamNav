@@ -1,0 +1,13 @@
+
+diffusers==0.33.1
+gradio==3.44.4
+gradio_imageslider==0.0.18
+h5py==3.11.0
+imageio==2.34.0
+imageio-ffmpeg>=0.4.8,<0.5
+matplotlib==3.7.5
+numpy==1.24.4
+open3d==0.19.0
+opencv-python==4.9.0.80
+Pillow==10.4.0
+requests==2.32.3

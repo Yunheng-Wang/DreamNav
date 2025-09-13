@@ -1,0 +1,72 @@
+# 说明:
+# 1. 初始化每个场景时, 仅有一个智能体
+
+sensor_semantic:
+  uuid: "sensor_semantic" 
+  sensor_type: "SEMANTIC"
+  sensor_subtype: "PINHOLE"
+  position: [0.0, 1.25, 0.0]
+  resolution: [480, 640]
+  orientation: [-0.262, 0.0, 0.0]
+  hfov: 69.0
+
+
+sensor_rgb:
+  uuid: "sensor_rgb"                                    # 传感器ID
+  sensor_type: "COLOR"                                  # 传感器类型为RGB
+  sensor_subtype: "PINHOLE"                             # 传感器子类型为Pinhole
+  position: [0.0, 1.25, 0.0]                            # 传感器在agent的位置
+  resolution: [480, 640]                                # 分辨率 [height, width]
+  orientation: [-0.262, 0.0, 0.0]                       # 传感器的朝向  ≈ -10°
+  hfov: 69.0                                            # 水平视场角
+
+
+sensor_depth:
+  uuid: "sensor_depth"                                  # 传感器ID
+  sensor_type: "DEPTH"                                  # 传感器类型为Depth
+  sensor_subtype: "PINHOLE"                             # 传感器子类型为Pinhole
+  position: [0.0, 1.25, 0.0]                            # 传感器在agent的位置
+  resolution: [480, 640]                                # 分辨率 [height, width]
+  orientation: [-0.262, 0.0, 0.0]                       # 传感器的朝向  ≈ -10°
+  hfov: 69.0                                            # 水平视场角
+
+
+config_agent:
+  height: 1.25                                          # 高度为1.25米
+  radius: 0.01                                           # 半径为0.25米
+  body_type: "cylinder"                                 # 形状为圆柱体
+
+
+config_env: 
+  allow_sliding: true                                   # 允许碰撞时滑动,而不是卡住
+  create_renderer: true                                 # 创建渲染器
+  enable_gfx_replay_save: true                          # 启用图形回放保存
+  enable_physics: false                                 # 禁用物理引擎
+  force_separate_semantic_scene_graph: false            # 图形回放时不单独构建语义场景图
+  frustum_culling: true                                 # 启用视锥剔除,提升渲染效率
+  gpu_device_id: 0                                      # 指定渲染的GPU设备ID
+  requires_textures: true                               # 加载贴图
+
+
+task: 
+  opennav_100: "./data/task/opennav/OpenNav_R2R-CE_100_bertidx.json"     
+  r2r_val_unseen: "./data/task/R2R_VLNCE_v1-3/val_unseen/val_unseen.json"       
+  dreamnav_ablation: "./data/task/dreamnav/ablation_task_success.json"   
+
+
+scene: "./data/scene_datasets/"                    # 场景目录路径
+
+
+foundation_model:
+  llm_model_type : "gpt-4o-2024-08-06"
+  video_model_type : "qwen-vl-max-latest"
+  mllm_model_type : "gpt-4o-2024-08-06"
+
+  deepbricks_api_key: "sk-hU1qTHzozoJbPKsaq7J47oW5HlSCd2bgeK34pp51rN9be46G"
+  qwen_api_key: "sk-32964f4cf0d4415e9019e71ee4f2d3a7"
+
+# experiment 1 : num_trajectory-> 4; imagine_resolution: 320x448; imagine_step -> 6
+hyper_parameter:
+  num_trajectory: 4       # 3, 4 ,5 ,6
+  imagine_resolution: 320 # 320 -> 320x448;   256, 320, 384, 448
+  imagine_step: 9         # 0, 3, 6, 9, 12

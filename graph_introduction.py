@@ -1,0 +1,62 @@
+import re
+import numpy as np
+from scipy.spatial.transform import Rotation as R
+import os
+import cv2
+import imageio
+import datetime
+import time
+import json
+import torch
+import gc
+
+from util.loader import load_config, load_task, load_video_as_frames
+from util.image import get_current_rgb_depth, visualize_trajectories
+from sim.init import environment
+from sim.action import action_trajectory, action_point
+
+
+from Inference import segmentation_mask
+
+
+
+if __name__ == "__main__": 
+    
+
+    cfg = load_config("config.yaml")
+
+    import magnum as mn
+    save_path = "picture/" + "introduction" + "/" 
+    # --------------------- 环境加载 ---------------------
+    sim, agent, agent_cfg = environment(cfg, "mp3d/2t7WUuJeko7/2t7WUuJeko7.glb", 0,[0.068599700927734,0.17162801325321198, -1.4848198890686035], [0.0,0.0,0.0,1.0])
+    action_point(sim, agent_cfg, 0, -1.823, observation = False)
+    action_point(sim, agent_cfg, 2.5, 0, observation = False)
+    action_point(sim, agent_cfg, 0, -1.5707, observation = False)
+    action_point(sim, agent_cfg, 0.5, 0, observation = False)
+    action_point(sim, agent_cfg, 0, 1.7707, observation = False)
+
+    action_point(sim, agent_cfg, 0, -0.52, observation = False)
+    action_point(sim, agent_cfg, 0, -0.52, observation = False)
+    action_point(sim, agent_cfg, 0, -0.52, observation = False)
+    action_point(sim, agent_cfg, 0, -0.52, observation = False)
+    action_point(sim, agent_cfg, 0, -0.52, observation = False)
+    action_point(sim, agent_cfg, 0, -0.52, observation = False)
+    action_point(sim, agent_cfg, 0, -0.52, observation = False)
+    action_point(sim, agent_cfg, 0, -0.52, observation = False)
+    action_point(sim, agent_cfg, 0, -0.52, observation = False)
+    action_point(sim, agent_cfg, 0, -0.52, observation = False)
+    action_point(sim, agent_cfg, 0, -0.52, observation = False)
+    # action_point(sim, agent_cfg, 2, -0.5, observation = False)
+    # action_point(sim, agent_cfg, 1.5, 0.5, observation = False)
+    # action_point(sim, agent_cfg, 0, -4, observation = False)
+    
+
+    # action_point(sim, agent_cfg, 0, -1.5707, observation = False)
+    # action_point(sim, agent_cfg, 0, -1.5707, observation = False)
+    # action_point(sim, agent_cfg, 0, -1.5707, observation = False)
+
+
+
+    rgb,depth,_, _ , _ = get_current_rgb_depth(sim, save_path, save=True)
+
+    accessible_area_mask = segmentation_mask(rgb, save_path)
