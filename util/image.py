@@ -14,7 +14,6 @@ def get_current_rgb_depth(simulator, save_path, save=True):
 
     rgb_image = observations["sensor_rgb"] 
     depth_image = observations["sensor_depth"]
-    semantic_image = observations["sensor_semantic"]
 
     if save:
         rgb_img = Image.fromarray(rgb_image.astype(np.uint8), mode="RGBA")  # 确保是 uint8
@@ -24,22 +23,10 @@ def get_current_rgb_depth(simulator, save_path, save=True):
         depth_img = Image.fromarray(depth_vis)
         depth_img.save(os.path.join(save_path, "egocentric_depth.png"))
 
-        # sem_vis = semantic_image.astype(np.uint8)
-        # sem_img = Image.fromarray(sem_vis)
-        # sem_img.save(os.path.join(save_path, "egocentric_semantic.png"))
     
-    semantic_scene = simulator.semantic_scene
-    semantic_instance_map = {}
-    for obj in semantic_scene.objects:
-        if obj is not None:
-            semantic_instance_map[obj.id] = obj.category.name()
-        
-    semantic_category_map = {}
-    for instance_id, category_name in semantic_instance_map.items():
-        category_id = int(instance_id.split('_')[-1])
-        semantic_category_map[category_id] = category_name
 
-    return rgb_image, depth_image, semantic_image, semantic_instance_map, semantic_category_map
+
+    return rgb_image, depth_image
 
 
 

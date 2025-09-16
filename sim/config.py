@@ -58,17 +58,9 @@ def main_config_agent_and_sensor(cfg):
     depth_sensor_spec.orientation = cfg["sensor_depth"]["orientation"]
     depth_sensor_spec.hfov = cfg["sensor_depth"]["hfov"]
 
-    # 创建 Semantic 传感器
-    semantic_sensor_spec = habitat_sim.SensorSpec()
-    semantic_sensor_spec.uuid = cfg["sensor_semantic"]["uuid"]
-    semantic_sensor_spec.sensor_type = getattr(habitat_sim.SensorType, cfg["sensor_semantic"]["sensor_type"])
-    semantic_sensor_spec.sensor_subtype = getattr(habitat_sim.SensorSubType, cfg["sensor_semantic"]["sensor_subtype"])
-    semantic_sensor_spec.position = cfg["sensor_semantic"]["position"]
-    semantic_sensor_spec.resolution = cfg["sensor_semantic"]["resolution"]
-    semantic_sensor_spec.orientation = cfg["sensor_semantic"]["orientation"]
-    semantic_sensor_spec.hfov = cfg["sensor_semantic"]["hfov"]
+
 
     # 绑定两个传感器
-    agent_cfg.sensor_specifications = [rgb_sensor_spec, depth_sensor_spec, semantic_sensor_spec]
+    agent_cfg.sensor_specifications = [rgb_sensor_spec, depth_sensor_spec]
 
     return agent_cfg

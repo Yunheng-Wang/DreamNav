@@ -134,29 +134,6 @@ def parse_task(
         all_imgs_path = [scene] + [None] * num_targets
         fovs = np.full((num_targets+1,), DEFAULT_FOV_RAD)
 
-        # import math
-        # angle_deg = -20
-        # angle_rad = math.radians(angle_deg)
-
-        # # Rotation matrix for pitch down around X-axis
-        # R = torch.tensor([
-        #     [1, 0, 0],
-        #     [0, math.cos(angle_rad), -math.sin(angle_rad)],
-        #     [0, math.sin(angle_rad),  math.cos(angle_rad)]
-        # ])
-
-        # # Combine with translation (no translation here)
-        # w2c = torch.eye(4)
-        # w2c[:3, :3] = R
-
-        # c2ws, fovs = get_preset_pose_fov(
-        #     option=options.get("traj_prior", "orbit"),
-        #     num_frames=num_targets + 1,
-        #     start_w2c=w2c,
-        #     look_at=torch.Tensor([0, 0, 10]),
-        # )
-        # print("????",c2ws.shape)
-        # print(c2ws[1])
 
         with Image.open(scene) as img:
             W, H = img.size
@@ -367,7 +344,11 @@ def svc_main(
 
 
 
-    scenes = [data_path  + "current_rgb.png"]
+    
+    if os.path.exists(os.path.join(data_path, "current_rgb.png")):
+        scenes = [os.path.join(data_path, "current_rgb.png")]
+    elif os.path.exists(os.path.join(data_path, "egocentric_rgb.png")):
+        scenes = [os.path.join(data_path, "egocentric_rgb.png")]
 
     print("scenes", scenes)
 

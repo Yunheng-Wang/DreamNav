@@ -8,22 +8,10 @@ def load_config(path):
         return yaml.safe_load(f)
 
 
-def load_task(cfg, task_type):
-
-    if task_type == "r2r":
-        path = cfg["task"]["r2r_val_unseen"]
-        with open(path, 'r', encoding='utf-8') as f:
-            data = json.load(f)["episodes"]
-         
-    if task_type == "opennav":
-        path = cfg["task"]["opennav_100"]
-        with open(path, 'r', encoding='utf-8') as f:
-            data = json.load(f)["episodes"]
-    if task_type == "dreamnav_ablation":
-        path = cfg["task"]["dreamnav_ablation"]
-        with open(path, 'r', encoding='utf-8') as f:
-            data = json.load(f)["episodes"]
-            
+def load_task(cfg):
+    path = cfg["task"]["path"]
+    with open(path, 'r', encoding='utf-8') as f:
+        data = json.load(f)["episodes"]
     return data
 
 

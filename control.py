@@ -30,7 +30,6 @@ from anticipate.stable_virtual_camera.demo import Model
 from trajectory.filter.diversity import filtering_trajectories
 from util.tool import compute_passable_proportions, compute_passable_proportions_mask, video_extraction
 from util.save import save_imagine, content_to_txt
-from semantic_segmentation.inference_samples import semantic_infer
 from Inference import segmentation_mask
 
 import threading

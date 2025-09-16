@@ -1,50 +1,42 @@
 import re
-import numpy as np
-from scipy.spatial.transform import Rotation as R
 import os
-import cv2
-import imageio
-import datetime
-import time
 import json
 import torch
 import gc
 
+
 from util.loader import load_config, load_task, load_video_as_frames
 from util.image import get_current_rgb_depth, visualize_trajectories
-from sim.state import cur_pos_rot
 from sim.init import environment
 from sim.action import action_trajectory, action_point
 from trajectory.navdp_client import tra_gene
 from anticipate.my import trajectory_prediction
 from foundation_model.api import reasoning_mllm,reasoning_llm, reasoning_video
-from foundation_model.preprocess import instruction_prompt,navigator_prompt, progress_prompt
+from foundation_model.preprocess import instruction_prompt,navigator_prompt, progress_prompt, observation_prompt
 from foundation_model.prompt import IMAGEINATIVE_DESCRIBLE
 from anticipate.stable_virtual_camera.demo import Model
-from semantic_segmentation.inference_samples import main
 from trajectory.filter.diversity import filtering_trajectories
-from util.tool import compute_passable_proportions
+from util.tool import compute_passable_proportions_mask, video_extraction
 from util.save import save_imagine, content_to_txt
-
-
+from Inference import segmentation_mask
 
 
 if __name__ == "__main__": 
     
-    task_type = "opennav"
     cfg = load_config("config.yaml")
-    task = load_task(cfg, task_type)
+    task = load_task(cfg)
+    record = {} 
 
-    record = {} # 记录每个任务的导航过程
-    
+
     for sig_task in task:
+    
+
         # --------------------- 重复跳过 ---------------------
-        save_path = "cache/" + task_type + "/" +  os.path.splitext(os.path.basename(sig_task["scene_id"]))[0] + "_" + str(sig_task["episode_id"]) + "/" 
+        save_path = "cache/" + os.path.splitext(os.path.basename(sig_task["scene_id"]))[0] + "_" + str(sig_task["episode_id"]) + "/" 
         record_path = save_path  + "trajectory.json"
         if os.path.exists(record_path):
             continue
         
-
 
         # --------------------- 初始化 ---------------------
         record[sig_task["episode_id"]] = []
@@ -61,10 +53,10 @@ if __name__ == "__main__":
         content_to_txt("episode_id: " + str(sig_task["episode_id"]), save_path)
 
 
-
         # --------------------- 环境加载 ---------------------
         sim, agent, agent_cfg = environment(cfg, sig_task["scene_id"], 0, sig_task["start_position"],sig_task["start_rotation"])
-        rgb,depth,semantic, _ , semantic_category_map = get_current_rgb_depth(sim, save_path, save=True)
+        rgb,depth= get_current_rgb_depth(sim, save_path, save=True)
+        accessible_area_mask = segmentation_mask(rgb, save_path)
         record[sig_task["episode_id"]].append(sim.get_agent(0).get_state().position) # 记录初始位置
         
 
@@ -74,7 +66,7 @@ if __name__ == "__main__":
         res_ins = reasoning_llm(cfg, ins_prompt)
         subtasks = [task.strip() for task in res_ins.split(';') if task.strip()]
         content_to_txt("Instruction Decomposition Result: " + res_ins, save_path)
-        max_step = len(subtasks)+1           # 最大步数 -> 可以容忍一次进度评估为0
+        max_step = len(subtasks)+2           # 最大步数 -> 可以容忍 2 次进度评估为0
         content_to_txt("Max Steps of Current Navigation: " + str(max_step), save_path)
         
 
@@ -90,30 +82,60 @@ if __name__ == "__main__":
 
             # --------------------- 视角微调矫正模块 ---------------------
             content_to_txt("@@@@@ Adjusting the perspective @@@@@", save_path)
-            total_ratio, left_ratio, right_ratio = compute_passable_proportions(semantic, semantic_category_map)
-            if total_ratio >= 0.1:
-                rgb,depth,semantic, _ , semantic_category_map = get_current_rgb_depth(sim, save_path, save=True)
-            else:
-                if left_ratio <= right_ratio:
-                    count = 0
-                    while(count < 6):
-                        action_point(sim, agent_cfg, 0, -0.523, observation = False)
-                        content_to_txt("right - 30 degrees", save_path)
-                        rgb,depth,semantic, _ , semantic_category_map = get_current_rgb_depth(sim, save_path, save=True)
-                        total_ratio, left_ratio, right_ratio = compute_passable_proportions(semantic, semantic_category_map)
-                        count += 1
-                        if total_ratio >= 0.1:
-                            break
+            
+            content_to_txt("Initial view correction:", save_path)
+            if nav_step == 0:
+                n = 0
+                while(True):
+                    if n >=4:
+                        break
+                    obs_prompt = observation_prompt(sig_task["instruction"]["instruction_text"])
+                    adjust_view = reasoning_mllm(cfg, [rgb], obs_prompt)
+                    adjust_view_matches = list(re.finditer(r'decision', adjust_view))
+                    adjust_view_last_match = adjust_view_matches[-1]
+                    adjust_view_choose = adjust_view[adjust_view_last_match.end():].strip()
+                    content_to_txt("Thinking: " + adjust_view, save_path)
+                    if "1" in adjust_view_choose:
+                        action_point(sim, agent_cfg, 0, 1.57, observation = False) # 90度
+                        content_to_txt("choose: turn 90 degree", save_path)
+                        rgb,depth= get_current_rgb_depth(sim, save_path, save=True)
+                        accessible_area_mask = segmentation_mask(rgb, save_path)
+                        n += 1
+                    else: 
+                        content_to_txt("choose: the current perspective is perfect.", save_path)
+                        break
+            
+            
+            if nav_step != 0:
+                content_to_txt("Adjusting the perspective:", save_path)
+                total_ratio, left_ratio, right_ratio = compute_passable_proportions_mask(accessible_area_mask)
+                if total_ratio >= 0.1:
+                    rgb,depth= get_current_rgb_depth(sim, save_path, save=True)
+                    accessible_area_mask = segmentation_mask(rgb, save_path)
                 else:
-                    count = 0
-                    while(count < 6):
-                        action_point(sim, agent_cfg, 0, 0.523, observation = False)
-                        content_to_txt("left - 30 degrees", save_path)
-                        rgb,depth,semantic, _ , semantic_category_map = get_current_rgb_depth(sim, save_path, save=True)
-                        total_ratio, left_ratio, right_ratio = compute_passable_proportions(semantic, semantic_category_map)
-                        count += 1
-                        if total_ratio >= 0.1:
-                            break
+                    if left_ratio <= right_ratio:
+                        count = 0
+                        while(count < 2):
+                            action_point(sim, agent_cfg, 0, -0.523, observation = False)
+                            content_to_txt("right - 30 degrees", save_path)
+                            rgb,depth= get_current_rgb_depth(sim, save_path, save=True)
+                            accessible_area_mask = segmentation_mask(rgb, save_path)
+                            total_ratio, left_ratio, right_ratio = compute_passable_proportions_mask(accessible_area_mask)
+                            count += 1
+                            if total_ratio >= 0.1:
+                                break
+                    else:
+                        count = 0
+                        while(count < 2):
+                            action_point(sim, agent_cfg, 0, 0.523, observation = False)
+                            content_to_txt("left - 30 degrees", save_path)
+                            rgb,depth= get_current_rgb_depth(sim, save_path, save=True)
+                            accessible_area_mask = segmentation_mask(rgb, save_path)
+                            # semantic,semantic_category_map = semantic_infer(rgb[..., :3], depth)
+                            total_ratio, left_ratio, right_ratio = compute_passable_proportions_mask(accessible_area_mask)
+                            count += 1
+                            if total_ratio >= 0.1:
+                                break
             
             # 记录当前视角
             history[nav_step][0] = rgb
@@ -164,9 +186,10 @@ if __name__ == "__main__":
 
             # --------------------- 轨迹生成模块 ---------------------
             _,all_trajectory_local,_, intrinsic = tra_gene(cfg, rgb[..., :3], depth, save_path)
-            all_trajectory_local = filtering_trajectories(all_trajectory_local)                     # 基于距离矩阵的最大散度贪心选择过滤
+            all_trajectory_local = filtering_trajectories(all_trajectory_local, cfg["hyper_parameter"]["num_trajectory"])                     # 基于距离矩阵的最大散度贪心选择过滤
             filter_trajectory_image = visualize_trajectories(intrinsic, rgb , all_trajectory_local, save_path, "filter_egocentric_trajectory")
             
+
             
             # --------------------- 轨迹想象模块 ---------------------
             content_to_txt("@@@@@ Imagine @@@@@", save_path)
@@ -174,11 +197,11 @@ if __name__ == "__main__":
             model = Model()
             for sig_trajectory in all_trajectory_local[0]:
                 # 执行想象
-                trajectory_prediction(sig_trajectory, save_path, model)
+                trajectory_prediction(sig_trajectory, save_path, model, cfg["hyper_parameter"]["imagine_resolution"])
                 frames = load_video_as_frames(save_path)
                 # 想象描述
                 inageinative_describle_prompt = IMAGEINATIVE_DESCRIBLE
-                frames_for_mllm = [frames[0], frames[8], frames[16], frames[24], frames[32], frames[36]]
+                frames_for_mllm = video_extraction(frames, cfg["hyper_parameter"]["imagine_step"])
                 while(True):
                     try:
                         traj_desc = reasoning_video(cfg, frames_for_mllm, inageinative_describle_prompt)
@@ -217,22 +240,27 @@ if __name__ == "__main__":
 
             # --------------------- 导航执行模块 ---------------------
             if "0" in choose:
-                selected_trajectory_image = visualize_trajectories(intrinsic, rgb , all_trajectory_local[:, 0:1, :, :], save_path, "selected_egocentric_trajectory")
+                st = (cfg["hyper_parameter"]["imagine_step"])*2 - 1
+                selected_trajectory_image = visualize_trajectories(intrinsic, rgb , all_trajectory_local[:, 0:1, :st, :], save_path, "selected_egocentric_trajectory")
                 history[nav_step][1] = selected_trajectory_image
-                record = action_trajectory(sim, agent_cfg, cfg, all_trajectory_local[0][0], save_path, record, sig_task, video=True)
+                record = action_trajectory(sim, agent_cfg, cfg, all_trajectory_local[0][0][:st], save_path, record, sig_task, video=True)
             elif "1" in choose:
-                selected_trajectory_image = visualize_trajectories(intrinsic, rgb , all_trajectory_local[:, 1:2, :, :], save_path, "selected_egocentric_trajectory")
+                st = (cfg["hyper_parameter"]["imagine_step"])*2 - 1
+                selected_trajectory_image = visualize_trajectories(intrinsic, rgb , all_trajectory_local[:, 1:2, :st, :], save_path, "selected_egocentric_trajectory")
                 history[nav_step][1] = selected_trajectory_image
-                record = action_trajectory(sim, agent_cfg, cfg, all_trajectory_local[0][1], save_path, record, sig_task, video=True)
+                record = action_trajectory(sim, agent_cfg, cfg, all_trajectory_local[0][1][:st], save_path, record, sig_task, video=True)
             elif "2" in choose:
-                selected_trajectory_image = visualize_trajectories(intrinsic, rgb , all_trajectory_local[:, 2:3, :, :], save_path, "selected_egocentric_trajectory")
+                st = (cfg["hyper_parameter"]["imagine_step"])*2 - 1
+                selected_trajectory_image = visualize_trajectories(intrinsic, rgb , all_trajectory_local[:, 2:3, :st, :], save_path, "selected_egocentric_trajectory")
                 history[nav_step][1] = selected_trajectory_image
-                record = action_trajectory(sim, agent_cfg, cfg, all_trajectory_local[0][2], save_path, record, sig_task, video=True)
+                record = action_trajectory(sim, agent_cfg, cfg, all_trajectory_local[0][2][:st], save_path, record, sig_task, video=True)
             else:
-                selected_trajectory_image = visualize_trajectories(intrinsic, rgb , all_trajectory_local[:, 3:4, :, :], save_path, "selected_egocentric_trajectory")
+                st = (cfg["hyper_parameter"]["imagine_step"])*2 - 1
+                selected_trajectory_image = visualize_trajectories(intrinsic, rgb , all_trajectory_local[:, 3:4, :st, :], save_path, "selected_egocentric_trajectory")
                 history[nav_step][1] = selected_trajectory_image
-                record = action_trajectory(sim, agent_cfg, cfg, all_trajectory_local[0][3], save_path, record, sig_task, video=True)
-            rgb,depth,semantic, _ , semantic_category_map = get_current_rgb_depth(sim, save_path, save=True)
+                record = action_trajectory(sim, agent_cfg, cfg, all_trajectory_local[0][3][:st], save_path, record, sig_task, video=True)
+            rgb,depth= get_current_rgb_depth(sim, save_path, save=True)
+            accessible_area_mask = segmentation_mask(rgb, save_path)
 
             nav_step += 1
 
@@ -248,6 +276,7 @@ if __name__ == "__main__":
                 "trajectory": episode_record_serializable
             }, f, indent=2)
         
+
         sim.close()
         del sim
         del model
