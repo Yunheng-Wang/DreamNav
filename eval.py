@@ -1,5 +1,6 @@
 import os
 import json
+import argparse
 from util.loader import load_config, load_task
 import math
 from sim.init import environment
@@ -79,9 +80,9 @@ def SPL_count(reference_length, real_length, success):
 
 
 
-def evaluate(task_type, result_path):
-    cfg = load_config("config.yaml")
-    task = load_task(cfg, task_type)  # 若返回 dict: 改为 task = load_task(... )["episodes"]
+def evaluate(result_path, config_path="config.yaml"):
+    cfg = load_config(config_path)
+    task = load_task(cfg)
 
     folder_list = [name for name in os.listdir(result_path) if os.path.isdir(os.path.join(result_path, name))]
     folders_with_traj = []
@@ -97,6 +98,8 @@ def evaluate(task_type, result_path):
     SPL = 0
     result = {}
     total_num = len(folders_with_traj)
+    if total_num == 0:
+        raise RuntimeError(f"No trajectory.json files found under: {result_path}")
     for folder in folders_with_traj:
         scene, episode_id = folder.split("_", 1)
         episode_id = episode_id.rsplit("_",1)[0]
@@ -134,7 +137,7 @@ def evaluate(task_type, result_path):
         result[folder]["SPL"] = now_SPL
         SPL += now_SPL
         sim.close()
-    
+
     SR = (SR / total_num) *100
     OSR = (OSR / total_num) *100
     NE = (NE / total_num) 
@@ -157,10 +160,16 @@ def evaluate(task_type, result_path):
         "number": total_num
     }
 
-    with open(result_path + "eval_results.json", "w", encoding="utf-8") as f:
+    output_path = os.path.join(result_path, "eval_results.json")
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
 
+    print(f"Saved detailed evaluation to: {output_path}")
 
-if __name__ == "__main__": 
-    evaluate("r2r", "/home/dreams/Users/yunhengwang/vln/cache/tmp/")
-    
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Evaluate DreamNav trajectories on R2R-CE.")
+    parser.add_argument("--result-path", required=True, help="Directory containing episode result folders.")
+    parser.add_argument("--config", default="config.yaml", help="Path to the DreamNav YAML configuration.")
+    args = parser.parse_args()
+    evaluate(args.result_path, args.config)

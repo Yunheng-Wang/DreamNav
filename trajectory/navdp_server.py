@@ -61,7 +61,10 @@ def navdp_reset(intrinsic, threshold, batchsize, save_path):
                                 heads=8,
                                 token_dim=384,
                                 stop_threshold=threshold,
-                                navi_model="/home/dreams/Users/yunhengwang/vln/trajectory/checkpoints/navdp-weights.ckpt",
+                                navi_model=os.getenv(
+                                    "DREAMNAV_NAVDP_CHECKPOINT",
+                                    os.path.join("trajectory", "checkpoints", "navdp-weights.ckpt"),
+                                ),
                                 device='cuda:0')
         navdp_navigator.reset(batchsize)
     else:
@@ -162,4 +165,3 @@ def navdp_step_nogoal(files, data):
     return {'trajectory': execute_trajectory.tolist(),
                     'all_trajectory': all_trajectory.tolist(),
                     'all_values': all_values.tolist()}
-

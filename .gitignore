@@ -14,7 +14,9 @@
 
 /semantic_segmentation/trained_models/
 
+.env
+.env.*
+
 __pycache__/
 *.pyc
 *.pyo
-

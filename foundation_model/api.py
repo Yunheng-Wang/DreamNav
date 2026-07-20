@@ -1,11 +1,26 @@
+import os
+
 from openai import OpenAI
 from .encode import transform_base64
+
+
+def _resolve_api_key(cfg, environment_variable, config_key):
+    api_key = os.getenv(environment_variable) or cfg["foundation_model"].get(config_key)
+    if not api_key:
+        raise RuntimeError(
+            f"Missing API credential. Set {environment_variable} in your environment "
+            f"or provide foundation_model.{config_key} in config.yaml."
+        )
+    return api_key
 
 
 
 def reasoning_mllm(cfg, image_list, prompt):
     if cfg["foundation_model"]["mllm_model_type"] == "gpt-4o-2024-08-06":
-        MLLM = OpenAI(api_key=cfg["foundation_model"]["deepbricks_api_key"], base_url="https://api.deepbricks.ai/v1/")
+        MLLM = OpenAI(
+            api_key=_resolve_api_key(cfg, "DEEPBRICKS_API_KEY", "deepbricks_api_key"),
+            base_url="https://api.deepbricks.ai/v1/",
+        )
         content = [{"type": "text", "text": prompt["user"]}]
         for index, image in enumerate(image_list):
             base64_image = transform_base64(image)
@@ -37,7 +52,10 @@ def reasoning_mllm(cfg, image_list, prompt):
 
 def reasoning_llm(cfg, prompt):
         
-    LLM = OpenAI(api_key=cfg["foundation_model"]["deepbricks_api_key"], base_url="https://api.deepbricks.ai/v1/")
+    LLM = OpenAI(
+        api_key=_resolve_api_key(cfg, "DEEPBRICKS_API_KEY", "deepbricks_api_key"),
+        base_url="https://api.deepbricks.ai/v1/",
+    )
 
     messages = [
         {"role": "system", "content": prompt["system"]},
@@ -63,7 +81,10 @@ def reasoning_llm(cfg, prompt):
 
 def reasoning_video(cfg, image_list, prompt):
     if cfg["foundation_model"]["video_model_type"] == "qwen-vl-max-latest":
-        client = OpenAI(api_key=cfg["foundation_model"]["qwen_api_key"], base_url="https://dashscope.aliyuncs.com/compatible-mode/v1")
+        client = OpenAI(
+            api_key=_resolve_api_key(cfg, "DASHSCOPE_API_KEY", "qwen_api_key"),
+            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+        )
         video_base64_list = [f"data:image/jpeg;base64,{transform_base64(image)}" for image in image_list]
         content = [
         {

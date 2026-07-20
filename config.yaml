@@ -47,8 +47,10 @@ foundation_model:
   video_model_type : "qwen-vl-max-latest"
   mllm_model_type : "gpt-4o-2024-08-06"
 
-  deepbricks_api_key: "sk-hU1qTHzozoJbPKsaq7J47oW5HlSCd2bgeK34pp51rN9be46G"
-  qwen_api_key: "sk-32964f4cf0d4415e9019e71ee4f2d3a7"
+  # Prefer environment variables DEEPBRICKS_API_KEY and DASHSCOPE_API_KEY.
+  # These optional fields are kept for backward compatibility only.
+  deepbricks_api_key: ""
+  qwen_api_key: ""
 
 
 hyper_parameter:
